@@ -1,10 +1,11 @@
 <p align="center">
   <img src="https://raw.githubusercontent.com/kubernetes/kubernetes/master/logo/logo.svg" width="80" alt="Kubernetes"/>
   &nbsp;&nbsp;&nbsp;
-  <img src="https://raw.githubusercontent.com/hashicorp/terraform/main/website/public/img/logo-text.svg" width="200" alt="Terraform"/>
+  <img src="https://img.shields.io/badge/Terraform-7B42BC?style=for-the-badge&logo=terraform&logoColor=white" height="50" alt="Terraform"/>
   &nbsp;&nbsp;&nbsp;
   <img src="https://upload.wikimedia.org/wikipedia/commons/9/93/Amazon_Web_Services_Logo.svg" width="80" alt="AWS"/>
 </p>
+
 
 <h1 align="center">🚀 EKS-Infra</h1>
 
