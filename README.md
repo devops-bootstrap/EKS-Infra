@@ -41,56 +41,98 @@
 
 ## 🏗️ Architecture
 
-<p align="center">
-  <img src="https://img.shields.io/badge/VPC-Networking-232F3E?style=flat-square&logo=amazonaws" alt="VPC"/>
-  ➡️
-  <img src="https://img.shields.io/badge/EKS-Cluster-FF9900?style=flat-square&logo=amazonaws" alt="EKS"/>
-  ➡️
-  <img src="https://img.shields.io/badge/ECR-Registry-FF9900?style=flat-square&logo=amazonaws" alt="ECR"/>
-  ➡️
-  <img src="https://img.shields.io/badge/Route53-DNS-8C4FFF?style=flat-square&logo=amazonaws" alt="Route53"/>
-</p>
+```mermaid
+flowchart TB
+    subgraph AWS["☁️ AWS Account"]
+        subgraph VPC["🌐 VPC Module"]
+            direction TB
+            subgraph Public["🟢 Public Subnets (3 AZs)"]
+                PUB1[AZ-1a] 
+                PUB2[AZ-1b]
+                PUB3[AZ-1c]
+            end
+            subgraph Private["🔵 Private Subnets (3 AZs)"]
+                PRI1[AZ-1a]
+                PRI2[AZ-1b]
+                PRI3[AZ-1c]
+            end
+            IGW[🌍 Internet Gateway]
+            NAT[🔀 NAT Gateway]
+            VPCE[🔗 VPC Endpoints<br/>S3, DynamoDB]
+            NACL[🛡️ NACLs]
+            SG[🔐 Security Groups]
+            FLOW[📊 Flow Logs → CloudWatch]
+        end
 
+        subgraph EKS["☸️ EKS Module"]
+            direction TB
+            CLUSTER[🎛️ EKS Cluster v1.34]
+            OIDC[🔑 OIDC Provider]
+            NG[💻 Node Group<br/>Bottlerocket • IMDSv2 • Encrypted EBS]
+            subgraph ADDONS["📦 EKS Addons"]
+                COREDNS[CoreDNS]
+                PROXY[kube-proxy]
+                CNI[VPC-CNI]
+                EBS[EBS-CSI]
+                ALB[ALB Controller]
+                POD_ID[Pod Identity]
+                SECRETS[Secrets Store CSI]
+            end
+            subgraph IRSA["🔑 IRSA Roles"]
+                R1[EBS-CSI]
+                R2[ALB Controller]
+                R3[VPC-CNI]
+                R4[Karpenter]
+                R5[External-DNS]
+                R6[Vault]
+            end
+        end
+
+        subgraph SUPPORT["🧩 Supporting Module"]
+            ECR[🐳 ECR<br/>Scan on Push • Lifecycle Policy]
+            R53[🌐 Route53<br/>*.preview zone]
+        end
+    end
+
+    IGW --> Public
+    NAT --> Private
+    Public --> CLUSTER
+    CLUSTER --> NG
+    CLUSTER --> ADDONS
+    OIDC --> IRSA
+    CLUSTER --> ECR
+    CLUSTER --> R53
+
+    style AWS fill:#232F3E,stroke:#FF9900,color:#fff
+    style VPC fill:#1a3a5c,stroke:#3b82f6,color:#fff
+    style EKS fill:#1a3a5c,stroke:#FF9900,color:#fff
+    style SUPPORT fill:#1a3a5c,stroke:#10b981,color:#fff
+    style Public fill:#065f46,stroke:#10b981,color:#fff
+    style Private fill:#1e3a5f,stroke:#3b82f6,color:#fff
+    style ADDONS fill:#2d2057,stroke:#7c3aed,color:#fff
+    style IRSA fill:#2d2057,stroke:#f59e0b,color:#fff
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         AWS Account                              │
-│                                                                  │
-│  ┌────────────────────── 🌐 VPC Module ───────────────────────┐  │
-│  │                                                            │  │
-│  │  🟢 Public Subnets (3 AZs)   🔵 Private Subnets (3 AZs)  │  │
-│  │  ┌───────┐┌───────┐┌───────┐ ┌───────┐┌───────┐┌───────┐ │  │
-│  │  │ AZ-1a ││ AZ-1b ││ AZ-1c │ │ AZ-1a ││ AZ-1b ││ AZ-1c │ │  │
-│  │  └───┬───┘└───┬───┘└───┬───┘ └───────┘└───────┘└───────┘ │  │
-│  │      │        │        │                                   │  │
-│  │  ┌───┴────────┴────────┴───┐  ┌─────────────────────────┐ │  │
-│  │  │  🌍 Internet Gateway    │  │  🔀 NAT Gateway         │ │  │
-│  │  └─────────────────────────┘  └─────────────────────────┘ │  │
-│  │                                                            │  │
-│  │  🛡️ NACLs  │  🔐 Security Groups  │  📊 Flow Logs        │  │
-│  │  🔗 VPC Endpoints (S3, DynamoDB)                          │  │
-│  └────────────────────────────────────────────────────────────┘  │
-│                                                                  │
-│  ┌────────────────────── ☸️ EKS Module ───────────────────────┐  │
-│  │                                                            │  │
-│  │  🎛️  EKS Cluster v1.34  │  🔑 OIDC Provider              │  │
-│  │  💻 Node Group (Bottlerocket, IMDSv2, Encrypted EBS)      │  │
-│  │                                                            │  │
-│  │  📦 Addons:                                               │  │
-│  │  ├── CoreDNS          ├── kube-proxy                      │  │
-│  │  ├── VPC-CNI          ├── EBS-CSI Driver                  │  │
-│  │  ├── ALB Controller   ├── Pod Identity Agent              │  │
-│  │  └── Secrets Store CSI                                    │  │
-│  │                                                            │  │
-│  │  🔐 IRSA Roles:                                           │  │
-│  │  ├── EBS-CSI    ├── ALB Controller   ├── VPC-CNI          │  │
-│  │  ├── Karpenter  ├── External-DNS     └── Vault            │  │
-│  └────────────────────────────────────────────────────────────┘  │
-│                                                                  │
-│  ┌────────────────── 🧩 Supporting Module ────────────────────┐  │
-│  │  🐳 ECR (scan on push, lifecycle)                         │  │
-│  │  🌐 Route53 (*.preview zone for ephemeral envs)           │  │
-│  └────────────────────────────────────────────────────────────┘  │
-└──────────────────────────────────────────────────────────────────┘
+
+### 📐 Module Dependency Flow
+
+```mermaid
+flowchart LR
+    TF["🏗️ Root Module<br/>main.tf"] --> VPC["🌐 VPC Module"]
+    TF --> EKS["☸️ EKS Module"]
+    TF --> SUP["🧩 Supporting Module"]
+
+    VPC -->|vpc_id<br/>subnet_ids| EKS
+    VPC -->|vpc_id| SUP
+
+    EKS -->|cluster_endpoint<br/>irsa_role_arns| OUTPUT["📤 Outputs"]
+    VPC -->|vpc_id<br/>subnet_ids| OUTPUT
+    SUP -->|ecr_url<br/>zone_id| OUTPUT
+
+    style TF fill:#7B42BC,stroke:#fff,color:#fff
+    style VPC fill:#3b82f6,stroke:#fff,color:#fff
+    style EKS fill:#FF9900,stroke:#fff,color:#fff
+    style SUP fill:#10b981,stroke:#fff,color:#fff
+    style OUTPUT fill:#6366f1,stroke:#fff,color:#fff
 ```
 
 ---
