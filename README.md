@@ -217,7 +217,7 @@ You can reference this repo as a Terraform module directly from GitHub without c
 
 ```hcl
 module "eks_infra" {
-  source = "github.com/<your-org>/EKS-Infra?ref=main"
+  source = "github.com/devops-bootstrap/EKS-Infra?ref=main"
 
   region              = "us-east-1"
   environment         = "dev"
