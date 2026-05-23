@@ -194,7 +194,7 @@ flowchart LR
 
 ```bash
 # 1️⃣ Clone the repo
-git clone https://github.com/<your-org>/EKS-Infra.git
+git clone https://github.com/devops-bootstrap/EKS-Infra.git
 cd EKS-Infra
 
 # 2️⃣ Initialize
