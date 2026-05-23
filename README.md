@@ -6,7 +6,6 @@
   <img src="https://upload.wikimedia.org/wikipedia/commons/9/93/Amazon_Web_Services_Logo.svg" width="80" alt="AWS"/>
 </p>
 
-
 <h1 align="center">🚀 EKS-Infra</h1>
 
 <p align="center">
@@ -21,6 +20,7 @@
 </p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License"/>
   <img src="https://img.shields.io/badge/IaC-Modular-blue?style=flat-square" alt="Modular"/>
   <img src="https://img.shields.io/badge/Security-Hardened-red?style=flat-square" alt="Security"/>
 </p>
@@ -149,28 +149,98 @@
 | <img src="https://img.shields.io/badge/AWS_CLI-FF9900?style=flat-square&logo=amazonaws&logoColor=white" alt="AWS CLI"/> | v2 | [Install](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) |
 | <img src="https://img.shields.io/badge/kubectl-326CE5?style=flat-square&logo=kubernetes&logoColor=white" alt="kubectl"/> | Latest | [Install](https://kubernetes.io/docs/tasks/tools/) |
 
-### 🚀 Deploy
+### 🚀 Deploy (Clone & Run)
 
 ```bash
-# 1️⃣ Initialize
+# 1️⃣ Clone the repo
+git clone https://github.com/<your-org>/EKS-Infra.git
+cd EKS-Infra
+
+# 2️⃣ Initialize
 terraform init
 
-# 2️⃣ Plan
+# 3️⃣ Plan
 terraform plan -var-file=envs/dev/terraform.tfvars
 
-# 3️⃣ Apply
+# 4️⃣ Apply
 terraform apply -var-file=envs/dev/terraform.tfvars
 
-# 4️⃣ Connect to cluster
+# 5️⃣ Connect to cluster
 aws eks update-kubeconfig --name dev-eks-cluster --region us-east-1
 kubectl get nodes
 ```
 
-### 🗑️ Destroy
+### 🚀 Deploy Directly from GitHub (No Clone)
 
-```bash
-terraform destroy -var-file=envs/dev/terraform.tfvars
+You can reference this repo as a Terraform module directly from GitHub without cloning:
+
+```hcl
+module "eks_infra" {
+  source = "github.com/<your-org>/EKS-Infra?ref=main"
+
+  region              = "us-east-1"
+  environment         = "dev"
+  eks_cluster_name    = "dev-eks-cluster"
+  eks_cluster_version = "1.34"
+  cidr_block          = "10.0.0.0/16"
+  private_subnet_cidrs = ["10.0.0.0/19", "10.0.32.0/19", "10.0.64.0/19"]
+  public_subnet_cidrs  = ["10.0.96.0/19", "10.0.128.0/19", "10.0.160.0/19"]
+}
 ```
+
+Then run:
+```bash
+terraform init
+terraform apply
+```
+
+> 💡 Use `?ref=v1.0.0` to pin to a specific tag/release.
+
+### 🚀 Deploy via GitHub Actions (CI/CD)
+
+Create `.github/workflows/terraform.yml` in your repo:
+
+```yaml
+name: Terraform EKS Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  TF_VAR_FILE: envs/dev/terraform.tfvars
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.0
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Plan
+        run: terraform plan -var-file=${{ env.TF_VAR_FILE }}
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        run: terraform apply -auto-approve -var-file=${{ env.TF_VAR_FILE }}
+```
+
+> ⚠️ Add `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` to your repo's **Settings → Secrets → Actions**. For production, use OIDC with IAM roles instead of static keys.
 
 ---
 
