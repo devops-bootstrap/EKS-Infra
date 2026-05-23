@@ -20,7 +20,6 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License"/>
   <img src="https://img.shields.io/badge/IaC-Modular-blue?style=flat-square" alt="Modular"/>
   <img src="https://img.shields.io/badge/Security-Hardened-red?style=flat-square" alt="Security"/>
 </p>
