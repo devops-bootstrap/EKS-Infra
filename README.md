@@ -1,253 +1,300 @@
-# EKS-Infra
+<p align="center">
+  <img src="https://raw.githubusercontent.com/kubernetes/kubernetes/master/logo/logo.svg" width="80" alt="Kubernetes"/>
+  &nbsp;&nbsp;&nbsp;
+  <img src="https://raw.githubusercontent.com/hashicorp/terraform/main/website/public/img/logo-text.svg" width="200" alt="Terraform"/>
+  &nbsp;&nbsp;&nbsp;
+  <img src="https://upload.wikimedia.org/wikipedia/commons/9/93/Amazon_Web_Services_Logo.svg" width="80" alt="AWS"/>
+</p>
 
-Infrastructure as Code (IaC) for deploying Amazon EKS (Elastic Kubernetes Service) clusters on AWS using Terraform.
+<h1 align="center">🚀 EKS-Infra</h1>
 
-## Overview
+<p align="center">
+  <strong>Production-Ready AWS EKS Infrastructure as Code</strong>
+</p>
 
-This repository contains Terraform code to provision a complete EKS infrastructure including:
-- **VPC**: Custom VPC with public and private subnets across multiple availability zones
-- **EKS Cluster**: Kubernetes cluster with configurable versions and endpoint access
-- **Node Groups**: Managed node groups with configurable instance types and scaling parameters
-- **IAM Roles**: IRSA (IAM Roles for Service Accounts) for pod-level permissions
-- **Supporting Resources**: ECR repositories, security groups, and other supporting AWS resources
+<p align="center">
+  <img src="https://img.shields.io/badge/Terraform-%3E%3D1.5-7B42BC?style=for-the-badge&logo=terraform&logoColor=white" alt="Terraform"/>
+  <img src="https://img.shields.io/badge/AWS_Provider-~%3E_6.0-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white" alt="AWS Provider"/>
+  <img src="https://img.shields.io/badge/Kubernetes-1.34-326CE5?style=for-the-badge&logo=kubernetes&logoColor=white" alt="Kubernetes"/>
+  <img src="https://img.shields.io/badge/EKS-Bottlerocket-FF9900?style=for-the-badge&logo=amazonaws&logoColor=white" alt="Bottlerocket"/>
+</p>
 
-## Architecture
-
-The infrastructure is organized into three main modules:
-
-### 1. VPC Module (`./modules/vpc`)
-Creates a highly available VPC with:
-- Public subnets (3 across AZs) with Internet Gateway
-- Private subnets (3 across AZs) with NAT Gateway
-- Route tables and associations for routing
-- VPC Gateway Endpoints for S3 and DynamoDB
-- Proper Kubernetes subnet tags for ELB provisioning
-
-### 2. EKS Module (`./modules/eks`)
-Provisions the EKS cluster with:
-- EKS control plane with configurable Kubernetes version
-- OIDC provider for IAM integration
-- Cluster IAM roles and policies
-- Managed node groups with auto-scaling
-- EBS CSI driver for persistent volumes
-- IRSA roles for:
-  - EBS CSI Driver
-  - AWS Load Balancer Controller
-  - VPC CNI
-  - Karpenter (auto-scaling)
-  - External DNS
-  - HashiCorp Vault
-
-### 3. Supporting Module (`./modules/supporting`)
-Manages additional resources:
-- ECR repositories for container images
-- Security group configurations
-
-## Prerequisites
-
-- **Terraform**: >= 1.5.0
-- **AWS Account**: with appropriate permissions
-- **AWS CLI**: configured with credentials
-- **Providers**:
-  - AWS Provider: ~> 6.0
-  - TLS Provider: ~> 4.0
-  - HTTP Provider: ~> 3.0
-
-## Getting Started
-
-### 1. Clone the Repository
-```bash
-git clone https://github.com/devops-bootstrap/EKS-Infra.git
-cd EKS-Infra
-```
-
-### 2. Initialize Terraform
-```bash
-terraform init
-```
-
-### 3. Review and Customize Variables
-Create a `terraform.tfvars` file to override default values:
-```hcl
-region     = "us-east-1"
-environment = "dev"
-eks_cluster_name = "my-eks-cluster"
-eks_cluster_version = "1.34"
-
-# VPC Configuration
-cidr_block           = "10.0.0.0/16"
-private_subnet_cidrs = ["10.0.0.0/19", "10.0.32.0/19", "10.0.64.0/19"]
-public_subnet_cidrs  = ["10.0.96.0/19", "10.0.128.0/19", "10.0.160.0/19"]
-
-# EKS Configuration
-eks_node_group_desired_size = 3
-eks_node_group_min_size     = 3
-eks_node_group_max_size     = 5
-eks_node_group_instance_types = ["t3.medium"]
-```
-
-### 4. Plan the Deployment
-```bash
-terraform plan -out=tfplan
-```
-
-### 5. Apply the Configuration
-```bash
-terraform apply tfplan
-```
-
-## Configuration
-
-### Key Variables
-
-#### General
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `region` | `us-east-1` | AWS region |
-| `environment` | `dev` | Environment name (dev, staging, prod) |
-| `default_tags` | `{Environment: Test, Owner: PlatformTeam}` | Default tags for all resources |
-
-#### VPC
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `cidr_block` | `10.0.0.0/16` | VPC CIDR block |
-| `private_subnet_cidrs` | `["10.0.0.0/19", "10.0.32.0/19", "10.0.64.0/19"]` | Private subnet CIDRs |
-| `public_subnet_cidrs` | `["10.0.96.0/19", "10.0.128.0/19", "10.0.160.0/19"]` | Public subnet CIDRs |
-| `vpc_endpoint_services` | `["com.amazonaws.us-east-1.s3", "com.amazonaws.us-east-1.dynamodb"]` | VPC Gateway Endpoints |
-
-#### EKS Cluster
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `eks_cluster_name` | `my-eks-cluster` | EKS cluster name |
-| `eks_cluster_version` | `1.34` | Kubernetes version |
-| `eks_cluster_service_ipv4_cidr` | `172.20.0.0/16` | Service CIDR |
-| `eks_cluster_endpoint_private_access` | `true` | Enable private API endpoint |
-| `eks_cluster_endpoint_public_access` | `true` | Enable public API endpoint |
-| `eks_cluster_endpoint_public_access_cidrs` | `["0.0.0.0/0"]` | Public endpoint access CIDRs |
-
-#### Node Groups
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `eks_node_group_ami_type` | `BOTTLEROCKET_x86_64` | AMI type for nodes |
-| `eks_node_group_instance_types` | `["t3.medium"]` | Instance types |
-| `eks_node_group_desired_size` | `3` | Desired number of nodes |
-| `eks_node_group_min_size` | `3` | Minimum number of nodes |
-| `eks_node_group_max_size` | `5` | Maximum number of nodes |
-
-#### Add-ons
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `addon_versions` | `{ ebs_csi = null }` | EKS add-on versions (null = latest) |
-
-## Outputs
-
-The following outputs are available after deployment:
-
-| Output | Description |
-|--------|-------------|
-| `vpc_id` | VPC ID |
-| `private_subnet_ids` | Private subnet IDs |
-| `public_subnet_ids` | Public subnet IDs |
-| `cluster_id` | EKS cluster ID |
-| `cluster_endpoint` | EKS API endpoint |
-| `cluster_certificate_authority_data` | Cluster CA certificate |
-| `cluster_oidc_issuer_url` | OIDC provider URL |
-| `irsa_role_arns` | IRSA role ARNs for various services |
-
-## Post-Deployment
-
-### 1. Configure kubectl
-```bash
-aws eks update-kubeconfig --region $(terraform output -raw region) --name $(terraform output -raw cluster_id)
-```
-
-### 2. Verify Cluster Access
-```bash
-kubectl get nodes
-kubectl get pods -A
-```
-
-### 3. Deploy Applications
-Use the provided outputs to configure Helm, applications, and other Kubernetes tools.
-
-## Environment Directories
-
-The `./envs` directory is reserved for environment-specific configurations and `.tfvars` files:
-```
-envs/
-├── dev/
-│   └── terraform.tfvars
-├── staging/
-│   └── terraform.tfvars
-└── prod/
-    └── terraform.tfvars
-```
-
-## Troubleshooting
-
-### Common Issues
-
-**1. VPC CIDR Conflicts**
-Ensure the CIDR blocks don't conflict with your existing infrastructure.
-
-**2. IAM Permissions**
-Verify that your AWS credentials have the necessary permissions to create EKS, VPC, and IAM resources.
-
-**3. Terraform State**
-For production use, configure a remote state backend (S3 + DynamoDB):
-```hcl
-terraform {
-  backend "s3" {
-    bucket         = "your-state-bucket"
-    key            = "eks-infra/terraform.tfstate"
-    region         = "us-east-1"
-    dynamodb_table = "terraform-locks"
-  }
-}
-```
-
-## Cleanup
-
-To destroy all resources:
-```bash
-terraform destroy
-```
-
-## Best Practices
-
-1. **Use separate tfvars files** for different environments
-2. **Enable state locking** with remote backends in production
-3. **Restrict public endpoint access** by limiting `eks_cluster_endpoint_public_access_cidrs`
-4. **Use private subnets** for node groups when possible
-5. **Enable EKS control plane logging** for audit trails
-6. **Regularly update** Kubernetes and add-on versions
-7. **Test changes** in dev/staging before production
-
-## Security Considerations
-
-- The default configuration allows public access to the EKS API endpoint. Restrict this in production.
-- Use private subnets for node groups whenever possible.
-- Enable VPC Flow Logs for network monitoring.
-- Implement network policies using Calico or Cilium.
-- Use RBAC and IRSA for least-privilege access.
-- Enable EBS encryption for persistent volumes.
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/improvement`)
-3. Commit changes (`git commit -am 'Add improvement'`)
-4. Push to the branch (`git push origin feature/improvement`)
-5. Create a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Support
-
-For issues, questions, or contributions, please open an issue on GitHub.
+<p align="center">
+  <img src="https://img.shields.io/badge/IaC-Modular-blue?style=flat-square" alt="Modular"/>
+  <img src="https://img.shields.io/badge/Security-Hardened-red?style=flat-square" alt="Security"/>
+</p>
 
 ---
 
-**Last Updated**: 2026-05-23
+## 📋 Table of Contents
+
+- [🏗️ Architecture](#️-architecture)
+- [📁 Folder Structure](#-folder-structure)
+- [⚡ Quick Start](#-quick-start)
+- [📦 What Gets Created](#-what-gets-created)
+- [🔧 Configuration](#-configuration)
+- [📤 Outputs](#-outputs)
+- [🔒 Security](#-security)
+
+---
+
+## 🏗️ Architecture
+
+<p align="center">
+  <img src="https://img.shields.io/badge/VPC-Networking-232F3E?style=flat-square&logo=amazonaws" alt="VPC"/>
+  ➡️
+  <img src="https://img.shields.io/badge/EKS-Cluster-FF9900?style=flat-square&logo=amazonaws" alt="EKS"/>
+  ➡️
+  <img src="https://img.shields.io/badge/ECR-Registry-FF9900?style=flat-square&logo=amazonaws" alt="ECR"/>
+  ➡️
+  <img src="https://img.shields.io/badge/Route53-DNS-8C4FFF?style=flat-square&logo=amazonaws" alt="Route53"/>
+</p>
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         AWS Account                              │
+│                                                                  │
+│  ┌────────────────────── 🌐 VPC Module ───────────────────────┐  │
+│  │                                                            │  │
+│  │  🟢 Public Subnets (3 AZs)   🔵 Private Subnets (3 AZs)  │  │
+│  │  ┌───────┐┌───────┐┌───────┐ ┌───────┐┌───────┐┌───────┐ │  │
+│  │  │ AZ-1a ││ AZ-1b ││ AZ-1c │ │ AZ-1a ││ AZ-1b ││ AZ-1c │ │  │
+│  │  └───┬───┘└───┬───┘└───┬───┘ └───────┘└───────┘└───────┘ │  │
+│  │      │        │        │                                   │  │
+│  │  ┌───┴────────┴────────┴───┐  ┌─────────────────────────┐ │  │
+│  │  │  🌍 Internet Gateway    │  │  🔀 NAT Gateway         │ │  │
+│  │  └─────────────────────────┘  └─────────────────────────┘ │  │
+│  │                                                            │  │
+│  │  🛡️ NACLs  │  🔐 Security Groups  │  📊 Flow Logs        │  │
+│  │  🔗 VPC Endpoints (S3, DynamoDB)                          │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  ┌────────────────────── ☸️ EKS Module ───────────────────────┐  │
+│  │                                                            │  │
+│  │  🎛️  EKS Cluster v1.34  │  🔑 OIDC Provider              │  │
+│  │  💻 Node Group (Bottlerocket, IMDSv2, Encrypted EBS)      │  │
+│  │                                                            │  │
+│  │  📦 Addons:                                               │  │
+│  │  ├── CoreDNS          ├── kube-proxy                      │  │
+│  │  ├── VPC-CNI          ├── EBS-CSI Driver                  │  │
+│  │  ├── ALB Controller   ├── Pod Identity Agent              │  │
+│  │  └── Secrets Store CSI                                    │  │
+│  │                                                            │  │
+│  │  🔐 IRSA Roles:                                           │  │
+│  │  ├── EBS-CSI    ├── ALB Controller   ├── VPC-CNI          │  │
+│  │  ├── Karpenter  ├── External-DNS     └── Vault            │  │
+│  └────────────────────────────────────────────────────────────┘  │
+│                                                                  │
+│  ┌────────────────── 🧩 Supporting Module ────────────────────┐  │
+│  │  🐳 ECR (scan on push, lifecycle)                         │  │
+│  │  🌐 Route53 (*.preview zone for ephemeral envs)           │  │
+│  └────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 📁 Folder Structure
+
+```
+📦 EKS-Infra/
+├── 📄 main.tf                         # Root module: wires all child modules
+├── 📄 variables.tf                    # Input variables
+├── 📄 outputs.tf                      # Exported values
+├── 📄 versions.tf                     # Provider version locks
+│
+├── 📂 modules/
+│   ├── 📂 vpc/
+│   │   ├── 🌐 main.tf                # VPC, subnets, IGW, route tables
+│   │   ├── 🔀 nat.tf                 # NAT Gateway + EIP
+│   │   ├── 🔗 endpoints.tf           # VPC Gateway Endpoints
+│   │   ├── 📊 flow_logs.tf           # VPC Flow Logs → CloudWatch
+│   │   ├── 🛡️ nacl.tf                # Network ACLs
+│   │   ├── 🔐 security_group.tf      # ALB + App security groups
+│   │   ├── 📄 variables.tf
+│   │   └── 📄 outputs.tf
+│   │
+│   ├── 📂 eks/
+│   │   ├── ☸️ main.tf                 # EKS cluster, OIDC, cluster IAM
+│   │   ├── 💻 node_groups.tf          # System node group
+│   │   ├── 🖥️ launch_template.tf      # IMDSv2, encrypted EBS
+│   │   ├── 📦 addons.tf              # EKS managed addons
+│   │   ├── 🔑 irsa.tf                # IRSA roles (least-privilege)
+│   │   ├── 📄 variables.tf
+│   │   └── 📄 outputs.tf
+│   │
+│   └── 📂 supporting/
+│       ├── 🐳 ecr.tf                 # ECR repo + lifecycle policy
+│       ├── 🌐 route53.tf             # Hosted zone for ephemeral envs
+│       ├── 📄 variables.tf
+│       └── 📄 outputs.tf
+│
+└── 📂 envs/
+    ├── 📂 dev/
+    │   └── 📄 terraform.tfvars       # Dev config
+    └── 📂 prod/
+        └── 📄 terraform.tfvars       # Prod config
+```
+
+---
+
+## ⚡ Quick Start
+
+### Prerequisites
+
+| Tool | Version | Link |
+|------|---------|------|
+| <img src="https://img.shields.io/badge/Terraform-7B42BC?style=flat-square&logo=terraform&logoColor=white" alt="Terraform"/> | >= 1.5.0 | [Install](https://developer.hashicorp.com/terraform/install) |
+| <img src="https://img.shields.io/badge/AWS_CLI-FF9900?style=flat-square&logo=amazonaws&logoColor=white" alt="AWS CLI"/> | v2 | [Install](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) |
+| <img src="https://img.shields.io/badge/kubectl-326CE5?style=flat-square&logo=kubernetes&logoColor=white" alt="kubectl"/> | Latest | [Install](https://kubernetes.io/docs/tasks/tools/) |
+
+### 🚀 Deploy
+
+```bash
+# 1️⃣ Initialize
+terraform init
+
+# 2️⃣ Plan
+terraform plan -var-file=envs/dev/terraform.tfvars
+
+# 3️⃣ Apply
+terraform apply -var-file=envs/dev/terraform.tfvars
+
+# 4️⃣ Connect to cluster
+aws eks update-kubeconfig --name dev-eks-cluster --region us-east-1
+kubectl get nodes
+```
+
+### 🗑️ Destroy
+
+```bash
+terraform destroy -var-file=envs/dev/terraform.tfvars
+```
+
+---
+
+## 📦 What Gets Created
+
+### 🌐 VPC Module
+
+| Resource | Details | Icon |
+|----------|---------|------|
+| VPC | Single VPC, DNS enabled | 🌐 |
+| Public Subnets | 3x across AZs, auto-assign public IP | 🟢 |
+| Private Subnets | 3x across AZs | 🔵 |
+| Internet Gateway | Public internet access | 🌍 |
+| NAT Gateway | Private subnet outbound | 🔀 |
+| Route Tables | Public → IGW, Private → NAT | 🗺️ |
+| VPC Endpoints | S3, DynamoDB (gateway) | 🔗 |
+| Flow Logs | REJECT traffic → CloudWatch | 📊 |
+| NACLs | Private + Public rules | 🛡️ |
+| Security Groups | ALB (80/443) + App (VPC internal) | 🔐 |
+
+### ☸️ EKS Module
+
+| Resource | Details | Icon |
+|----------|---------|------|
+| EKS Cluster | v1.34, full control plane logging | 🎛️ |
+| OIDC Provider | IRSA support | 🔑 |
+| Node Group | On-demand, Bottlerocket, gp3 encrypted | 💻 |
+| Launch Template | IMDSv2 enforced, hop limit 1 | 🖥️ |
+| CoreDNS | Cluster DNS resolution | 📦 |
+| kube-proxy | Network proxy | 📦 |
+| VPC-CNI | Pod networking + IRSA | 📦 |
+| EBS-CSI | Persistent volumes + IRSA | 📦 |
+| ALB Controller | Ingress/LB management + IRSA | 📦 |
+| Pod Identity Agent | EKS Pod Identity | 📦 |
+| Secrets Store CSI | AWS Secrets Manager | 📦 |
+
+### 🧩 Supporting Module
+
+| Resource | Details | Icon |
+|----------|---------|------|
+| ECR Repository | Scan on push, keep last 30 images | 🐳 |
+| Route53 Zone | `*.preview.<env>.test.io` | 🌐 |
+
+---
+
+## 🔧 Configuration
+
+### Environment Comparison
+
+| Setting | 🧪 Dev | 🏭 Prod |
+|---------|--------|---------|
+| Cluster Name | `dev-eks-cluster` | `prod-eks-cluster` |
+| Instance Type | `t3.medium` | `m5.large` |
+| Node Count | 3–5 | 3–10 |
+| Public API | ✅ Enabled | ❌ Disabled |
+| VPC CIDR | `10.0.0.0/16` | `10.1.0.0/16` |
+
+### Input Variables
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `region` | `string` | `us-east-1` | AWS region |
+| `environment` | `string` | `dev` | Environment name |
+| `eks_cluster_name` | `string` | `my-eks-cluster` | Cluster name |
+| `eks_cluster_version` | `string` | `1.34` | K8s version |
+| `cidr_block` | `string` | `10.0.0.0/16` | VPC CIDR |
+| `private_subnet_cidrs` | `list(string)` | 3x /19 | Private CIDRs |
+| `public_subnet_cidrs` | `list(string)` | 3x /19 | Public CIDRs |
+| `eks_node_group_ami_type` | `string` | `BOTTLEROCKET_x86_64` | Node AMI |
+| `eks_node_group_instance_types` | `list(string)` | `["t3.medium"]` | Instance types |
+| `eks_node_group_desired_size` | `number` | `3` | Desired nodes |
+| `eks_node_group_min_size` | `number` | `3` | Min nodes |
+| `eks_node_group_max_size` | `number` | `5` | Max nodes |
+| `vpc_endpoint_services` | `list(string)` | S3, DynamoDB | VPC endpoints |
+| `addon_versions` | `object` | `null` | Override addon versions |
+
+---
+
+## 📤 Outputs
+
+| Output | Description |
+|--------|-------------|
+| `vpc_id` | 🌐 VPC ID |
+| `private_subnet_ids` | 🔵 Private subnet IDs |
+| `public_subnet_ids` | 🟢 Public subnet IDs |
+| `cluster_id` | ☸️ EKS cluster ID |
+| `cluster_endpoint` | 🔗 EKS API server endpoint |
+| `cluster_certificate_authority_data` | 🔐 Base64 CA cert |
+| `cluster_oidc_issuer_url` | 🔑 OIDC issuer for IRSA |
+| `irsa_role_arns` | 🎭 Map of IRSA role ARNs |
+
+---
+
+## 🔒 Security
+
+<p align="center">
+  <img src="https://img.shields.io/badge/IMDSv2-Enforced-green?style=for-the-badge" alt="IMDSv2"/>
+  <img src="https://img.shields.io/badge/EBS-Encrypted-green?style=for-the-badge" alt="EBS"/>
+  <img src="https://img.shields.io/badge/Bottlerocket-Immutable_OS-green?style=for-the-badge" alt="Bottlerocket"/>
+  <img src="https://img.shields.io/badge/IRSA-Least_Privilege-green?style=for-the-badge" alt="IRSA"/>
+</p>
+
+| Feature | Status | Details |
+|---------|--------|---------|
+| 🖥️ IMDSv2 | ✅ Enforced | Hop limit = 1, tokens required |
+| 💾 EBS Encryption | ✅ Enabled | gp3, AWS default KMS |
+| 🐧 Node OS | ✅ Bottlerocket | Minimal attack surface, immutable |
+| 📊 Flow Logs | ✅ Enabled | REJECT traffic → CloudWatch |
+| 🛡️ NACLs | ✅ Configured | Public + Private subnets |
+| 🔑 IRSA | ✅ Least-privilege | One role per controller |
+| 🐳 ECR Scanning | ✅ On push | Vulnerability detection |
+| 📝 Control Plane Logs | ✅ All enabled | api, audit, authenticator, controller, scheduler |
+| 🔒 Private Endpoint | ✅ Prod only | Public disabled in production |
+
+---
+
+## 🤝 Contributing
+
+1. Create a feature branch from `develop`
+2. Make changes
+3. Run `terraform fmt` and `terraform validate`
+4. Open a Pull Request
+
+---
+
+<p align="center">
+  <sub>Built with ❤️ using Terraform & AWS EKS</sub>
+</p>
