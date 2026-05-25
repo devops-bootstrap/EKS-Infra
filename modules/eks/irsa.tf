@@ -5,12 +5,13 @@ locals {
   oidc_arn    = aws_iam_openid_connect_provider.cluster.arn
 
   irsa_roles = {
-    ebs_csi        = { ns = "kube-system", sa = "ebs-csi-controller-sa" }
-    alb_controller = { ns = "kube-system", sa = "aws-load-balancer-controller" }
-    vpc_cni        = { ns = "kube-system", sa = "aws-node" }
-    karpenter      = { ns = "kube-system", sa = "karpenter" }
-    external_dns   = { ns = "external-dns", sa = "external-dns" }
-    vault          = { ns = "vault", sa = "vault" }
+    ebs_csi            = { ns = "kube-system", sa = "ebs-csi-controller-sa" }
+    alb_controller     = { ns = "kube-system", sa = "aws-load-balancer-controller" }
+    vpc_cni            = { ns = "kube-system", sa = "aws-node" }
+    karpenter          = { ns = "kube-system", sa = "karpenter" }
+    external_dns       = { ns = "external-dns", sa = "external-dns" }
+    vault              = { ns = "vault", sa = "vault" }
+    ack_secretsmanager = { ns = "ack-system", sa = "ack-secretsmanager-controller" }
   }
 }
 
@@ -144,4 +145,51 @@ resource "aws_iam_role" "vault" {
       }}
     }]
   })
+}
+
+# ACK Secrets Manager Controller
+resource "aws_iam_role" "ack_secretsmanager" {
+  name               = "${var.eks_cluster_name}-ack-secretsmanager"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Federated = local.oidc_arn }
+      Action    = "sts:AssumeRoleWithWebIdentity"
+      Condition = { StringEquals = {
+        "${local.oidc_issuer}:sub" = "system:serviceaccount:${local.irsa_roles.ack_secretsmanager.ns}:${local.irsa_roles.ack_secretsmanager.sa}"
+        "${local.oidc_issuer}:aud" = "sts.amazonaws.com"
+      }}
+    }]
+  })
+}
+
+resource "aws_iam_policy" "ack_secretsmanager" {
+  name = "${var.eks_cluster_name}-ack-secretsmanager"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:CreateSecret",
+          "secretsmanager:DeleteSecret",
+          "secretsmanager:DescribeSecret",
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:ListSecrets",
+          "secretsmanager:PutSecretValue",
+          "secretsmanager:UpdateSecret",
+          "secretsmanager:TagResource",
+          "secretsmanager:UntagResource",
+          "secretsmanager:RestoreSecret"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ack_secretsmanager" {
+  role       = aws_iam_role.ack_secretsmanager.name
+  policy_arn = aws_iam_policy.ack_secretsmanager.arn
 }
