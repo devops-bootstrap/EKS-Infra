@@ -42,8 +42,10 @@ resource "aws_eks_addon" "ebs_csi" {
   resolve_conflicts_on_update = "OVERWRITE"
 }
 
-resource "aws_eks_addon" "alb_controller" {
-  cluster_name             = aws_eks_cluster.main.name
-  addon_name               = "aws-load-balancer-controller"
-  service_account_role_arn = aws_iam_role.alb_controller.arn
-}
+# NOTE: ALB Controller is not supported as an EKS managed addon in K8s 1.34.
+# Install via Helm instead:
+#   helm repo add eks https://aws.github.io/eks-charts
+#   helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+#     -n kube-system \
+#     --set clusterName=<cluster_name> \
+#     --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=<alb_controller_irsa_role_arn>
