@@ -201,10 +201,10 @@ cd EKS-Infra
 terraform init
 
 # 3️⃣ Plan
-terraform plan -var-file=envs/dev/terraform.tfvars
+terraform plan -var-file="envs/dev/terraform.tfvars"
 
 # 4️⃣ Apply
-terraform apply -var-file=envs/dev/terraform.tfvars
+terraform apply -var-file="envs/dev/terraform.tfvars"
 
 # 5️⃣ Connect to cluster
 aws eks update-kubeconfig --name dev-eks-cluster --region us-east-1
