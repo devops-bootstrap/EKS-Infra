@@ -1,6 +1,13 @@
+create_vpc = true
+create_eks = true
+
+# Uncomment and set these when create_vpc = false
+# existing_vpc_id     = "vpc-xxxxxxxxxxxxxxxxx"
+# existing_subnet_ids = ["subnet-xxxxxxxxxxxxxxxxx", "subnet-yyyyyyyyyyyyyyyyy"]
+
 region              = "us-east-1"
 environment         = "dev"
-eks_cluster_name    = "dev-eks-cluster"
+eks_cluster_name    = "peeks-spoke-test"
 eks_cluster_version = "1.34"
 
 cidr_block           = "10.0.0.0/16"
@@ -12,9 +19,9 @@ eks_cluster_endpoint_public_access  = true
 
 eks_node_group_ami_type       = "BOTTLEROCKET_x86_64"
 eks_node_group_instance_types = ["t3.medium"]
-eks_node_group_desired_size   = 2
-eks_node_group_min_size       = 2
-eks_node_group_max_size       = 2
+eks_node_group_desired_size   = 4
+eks_node_group_min_size       = 4
+eks_node_group_max_size       = 4
 
 vpc_endpoint_services = [
   "com.amazonaws.us-east-1.s3",
@@ -23,7 +30,6 @@ vpc_endpoint_services = [
 
 addon_versions = {
   ebs_csi = null
-  efs_csi = null
 }
 
 default_tags = {
