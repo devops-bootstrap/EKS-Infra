@@ -12,6 +12,8 @@ locals {
     external_dns       = { ns = "external-dns", sa = "external-dns" }
     vault              = { ns = "vault", sa = "vault" }
     ack_secretsmanager = { ns = "ack-system", sa = "ack-secretsmanager-controller" }
+    crossplane         = { ns = "crossplane-system", sa = "upbound-provider-aws-*" }
+    ack_iam            = { ns = "ack-system", sa = "ack-iam-controller" }
   }
 }
 
@@ -108,6 +110,70 @@ resource "aws_iam_role" "karpenter" {
   })
 }
 
+resource "aws_iam_policy" "karpenter" {
+  name = "${var.eks_cluster_name}-karpenter"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:Describe*",
+          "ec2:CreateLaunchTemplate",
+          "ec2:CreateFleet",
+          "ec2:CreateTags",
+          "ec2:RunInstances",
+          "ec2:TerminateInstances",
+          "ec2:DeleteLaunchTemplate"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["iam:PassRole"]
+        Resource = "arn:aws:iam::*:role/${var.eks_cluster_name}-nodegroup-role"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:ListInstanceProfiles",
+          "iam:CreateInstanceProfile",
+          "iam:DeleteInstanceProfile",
+          "iam:GetInstanceProfile",
+          "iam:AddRoleToInstanceProfile",
+          "iam:RemoveRoleFromInstanceProfile",
+          "iam:TagInstanceProfile"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "eks:DescribeCluster",
+          "pricing:GetProducts",
+          "ssm:GetParameter"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "sqs:DeleteMessage",
+          "sqs:GetQueueAttributes",
+          "sqs:GetQueueUrl",
+          "sqs:ReceiveMessage"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "karpenter" {
+  role       = aws_iam_role.karpenter.name
+  policy_arn = aws_iam_policy.karpenter.arn
+}
+
 resource "aws_iam_instance_profile" "karpenter" {
   name = "${var.eks_cluster_name}-karpenter"
   role = aws_iam_role.karpenter.name
@@ -192,4 +258,123 @@ resource "aws_iam_policy" "ack_secretsmanager" {
 resource "aws_iam_role_policy_attachment" "ack_secretsmanager" {
   role       = aws_iam_role.ack_secretsmanager.name
   policy_arn = aws_iam_policy.ack_secretsmanager.arn
+}
+
+# ACK IAM Controller
+resource "aws_iam_role" "ack_iam" {
+  name               = "${var.eks_cluster_name}-ack-iam"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Federated = local.oidc_arn }
+      Action    = "sts:AssumeRoleWithWebIdentity"
+      Condition = { StringEquals = {
+        "${local.oidc_issuer}:sub" = "system:serviceaccount:${local.irsa_roles.ack_iam.ns}:${local.irsa_roles.ack_iam.sa}"
+        "${local.oidc_issuer}:aud" = "sts.amazonaws.com"
+      }}
+    }]
+  })
+}
+
+resource "aws_iam_policy" "ack_iam" {
+  name = "${var.eks_cluster_name}-ack-iam"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:CreateRole",
+          "iam:DeleteRole",
+          "iam:GetRole",
+          "iam:UpdateRole",
+          "iam:TagRole",
+          "iam:UntagRole",
+          "iam:ListRoleTags",
+          "iam:CreatePolicy",
+          "iam:DeletePolicy",
+          "iam:GetPolicy",
+          "iam:GetPolicyVersion",
+          "iam:CreatePolicyVersion",
+          "iam:DeletePolicyVersion",
+          "iam:ListPolicyVersions",
+          "iam:AttachRolePolicy",
+          "iam:DetachRolePolicy",
+          "iam:ListAttachedRolePolicies",
+          "iam:PutRolePolicy",
+          "iam:DeleteRolePolicy",
+          "iam:GetRolePolicy"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ack_iam" {
+  role       = aws_iam_role.ack_iam.name
+  policy_arn = aws_iam_policy.ack_iam.arn
+}
+
+# Crossplane AWS Provider
+resource "aws_iam_role" "crossplane" {
+  name               = "${var.eks_cluster_name}-crossplane-provider-aws"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Federated = local.oidc_arn }
+      Action    = "sts:AssumeRoleWithWebIdentity"
+      Condition = {
+        StringLike = {
+          "${local.oidc_issuer}:sub" = "system:serviceaccount:${local.irsa_roles.crossplane.ns}:${local.irsa_roles.crossplane.sa}"
+        }
+        StringEquals = {
+          "${local.oidc_issuer}:aud" = "sts.amazonaws.com"
+        }
+      }
+    }]
+  })
+}
+
+resource "aws_iam_policy" "crossplane" {
+  name = "${var.eks_cluster_name}-crossplane-provider-aws"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          # S3
+          "s3:*",
+          # RDS
+          "rds:*",
+          # EC2 (VPC, subnets, security groups)
+          "ec2:Describe*",
+          "ec2:CreateVpc",
+          "ec2:DeleteVpc",
+          "ec2:CreateSubnet",
+          "ec2:DeleteSubnet",
+          "ec2:CreateSecurityGroup",
+          "ec2:DeleteSecurityGroup",
+          "ec2:AuthorizeSecurityGroupIngress",
+          "ec2:RevokeSecurityGroupIngress",
+          "ec2:CreateTags",
+          # IAM (for managed resources)
+          "iam:GetRole",
+          "iam:PassRole",
+          # Tagging
+          "tag:GetResources",
+          "tag:TagResources"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "crossplane" {
+  role       = aws_iam_role.crossplane.name
+  policy_arn = aws_iam_policy.crossplane.arn
 }
