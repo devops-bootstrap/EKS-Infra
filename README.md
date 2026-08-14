@@ -31,6 +31,7 @@
 - [🏗️ Architecture](#️-architecture)
 - [📁 Folder Structure](#-folder-structure)
 - [⚡ Quick Start](#-quick-start)
+- [🎛️ Deployment Modes](#️-deployment-modes)
 - [📦 What Gets Created](#-what-gets-created)
 - [🔧 Configuration](#-configuration)
 - [📤 Outputs](#-outputs)
@@ -39,6 +40,8 @@
 ---
 
 ## 🏗️ Architecture
+
+> 📐 **[View Full AWS Architecture Diagram](docs/architecture.html)** — Open in browser for detailed view with official AWS icons
 
 ```mermaid
 flowchart TB
@@ -116,22 +119,27 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-    TF["🏗️ Root Module<br/>main.tf"] --> VPC["🌐 VPC Module"]
-    TF --> EKS["☸️ EKS Module"]
-    TF --> SUP["🧩 Supporting Module"]
+    TFVARS["📄 terraform.tfvars<br/>create_vpc / create_eks"] --> TF
+    TF["🏗️ Root Module<br/>main.tf"] -->|create_vpc=true| VPC["🌐 VPC Module"]
+    TF -->|create_eks=true| EKS["☸️ EKS Module"]
+    TF -->|create_eks=true| SUP["🧩 Supporting Module"]
 
     VPC -->|vpc_id<br/>subnet_ids| EKS
     VPC -->|vpc_id| SUP
+    EXISTING["🔧 existing_vpc_id<br/>existing_subnet_ids"] -->|create_vpc=false| EKS
+    EXISTING -->|create_vpc=false| SUP
 
     EKS -->|cluster_endpoint<br/>irsa_role_arns| OUTPUT["📤 Outputs"]
     VPC -->|vpc_id<br/>subnet_ids| OUTPUT
     SUP -->|ecr_url<br/>zone_id| OUTPUT
 
+    style TFVARS fill:#374151,stroke:#9ca3af,color:#fff
     style TF fill:#7B42BC,stroke:#fff,color:#fff
     style VPC fill:#3b82f6,stroke:#fff,color:#fff
     style EKS fill:#FF9900,stroke:#fff,color:#fff
     style SUP fill:#10b981,stroke:#fff,color:#fff
     style OUTPUT fill:#6366f1,stroke:#fff,color:#fff
+    style EXISTING fill:#374151,stroke:#9ca3af,color:#fff
 ```
 
 ---
@@ -182,6 +190,8 @@ flowchart LR
 
 ## ⚡ Quick Start
 
+> 💡 By default both `create_vpc` and `create_eks` are `true`. See [🎛️ Deployment Modes](#️-deployment-modes) to provision only VPC or only EKS.
+
 ### Prerequisites
 
 | Tool | Version | Link |
@@ -201,10 +211,10 @@ cd EKS-Infra
 terraform init
 
 # 3️⃣ Plan
-terraform plan -var-file="envs/dev/terraform.tfvars"
+terraform plan -var-file=envs/dev/terraform.tfvars
 
 # 4️⃣ Apply
-terraform apply -var-file="envs/dev/terraform.tfvars"
+terraform apply -var-file=envs/dev/terraform.tfvars
 
 # 5️⃣ Connect to cluster
 aws eks update-kubeconfig --name dev-eks-cluster --region us-east-1
@@ -236,6 +246,43 @@ terraform apply
 ```
 
 > 💡 Use `?ref=v1.0.0` to pin to a specific tag/release.
+
+---
+
+## 🎛️ Deployment Modes
+
+Two boolean flags in `terraform.tfvars` control what gets provisioned:
+
+| `create_vpc` | `create_eks` | Mode | Use Case |
+|:---:|:---:|---|---|
+| `true` | `true` | **VPC + EKS** (default) | Full stack from scratch |
+| `true` | `false` | **VPC only** | Pre-provision networking before EKS |
+| `false` | `true` | **EKS only** | Deploy into an existing VPC |
+
+### VPC + EKS (default)
+
+```hcl
+create_vpc = true
+create_eks = true
+```
+
+### VPC only
+
+```hcl
+create_vpc = true
+create_eks = false
+```
+
+### EKS only (existing VPC)
+
+```hcl
+create_vpc          = false
+create_eks          = true
+existing_vpc_id     = "vpc-xxxxxxxxxxxxxxxxx"
+existing_subnet_ids = ["subnet-xxxxxxxxxxxxxxxxx", "subnet-yyyyyyyyyyyyyyyyy"]
+```
+
+> ⚠️ `existing_vpc_id` and `existing_subnet_ids` are required when `create_vpc = false`.
 
 ### 🚀 Deploy via GitHub Actions (CI/CD)
 
@@ -333,9 +380,9 @@ jobs:
 
 | Setting | 🧪 Dev | 🏭 Prod |
 |---------|--------|---------|
-| Cluster Name | `dev-eks-cluster` | `prod-eks-cluster` |
+| Cluster Name | `peeks-spoke-test` | `prod-eks-cluster` |
 | Instance Type | `t3.medium` | `m5.large` |
-| Node Count | 3–5 | 3–10 |
+| Node Count | 4 (fixed) | 3–10 |
 | Public API | ✅ Enabled | ❌ Disabled |
 | VPC CIDR | `10.0.0.0/16` | `10.1.0.0/16` |
 
@@ -343,6 +390,10 @@ jobs:
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
+| `create_vpc` | `bool` | `true` | Provision the VPC module |
+| `create_eks` | `bool` | `true` | Provision the EKS + supporting modules |
+| `existing_vpc_id` | `string` | `""` | Existing VPC ID (when `create_vpc = false`) |
+| `existing_subnet_ids` | `list(string)` | `[]` | Existing subnet IDs (when `create_vpc = false`) |
 | `region` | `string` | `us-east-1` | AWS region |
 | `environment` | `string` | `dev` | Environment name |
 | `eks_cluster_name` | `string` | `my-eks-cluster` | Cluster name |
@@ -362,16 +413,18 @@ jobs:
 
 ## 📤 Outputs
 
-| Output | Description |
-|--------|-------------|
-| `vpc_id` | 🌐 VPC ID |
-| `private_subnet_ids` | 🔵 Private subnet IDs |
-| `public_subnet_ids` | 🟢 Public subnet IDs |
-| `cluster_id` | ☸️ EKS cluster ID |
-| `cluster_endpoint` | 🔗 EKS API server endpoint |
-| `cluster_certificate_authority_data` | 🔐 Base64 CA cert |
-| `cluster_oidc_issuer_url` | 🔑 OIDC issuer for IRSA |
-| `irsa_role_arns` | 🎭 Map of IRSA role ARNs |
+Outputs return `null` when the corresponding module is not provisioned.
+
+| Output | Description | Requires |
+|--------|-------------|----------|
+| `vpc_id` | 🌐 VPC ID | `create_vpc = true` |
+| `private_subnet_ids` | 🔵 Private subnet IDs | `create_vpc = true` |
+| `public_subnet_ids` | 🟢 Public subnet IDs | `create_vpc = true` |
+| `cluster_id` | ☸️ EKS cluster ID | `create_eks = true` |
+| `cluster_endpoint` | 🔗 EKS API server endpoint | `create_eks = true` |
+| `cluster_certificate_authority_data` | 🔐 Base64 CA cert | `create_eks = true` |
+| `cluster_oidc_issuer_url` | 🔑 OIDC issuer for IRSA | `create_eks = true` |
+| `irsa_role_arns` | 🎭 Map of IRSA role ARNs | `create_eks = true` |
 
 ---
 
