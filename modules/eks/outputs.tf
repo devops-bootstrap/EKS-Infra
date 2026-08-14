@@ -36,5 +36,7 @@ output "irsa_role_arns" {
     external_dns       = aws_iam_role.external_dns.arn
     vault              = aws_iam_role.vault.arn
     ack_secretsmanager = aws_iam_role.ack_secretsmanager.arn
+    ack_iam            = aws_iam_role.ack_iam.arn
+    crossplane         = aws_iam_role.crossplane.arn
   }
 }
