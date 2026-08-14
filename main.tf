@@ -1,6 +1,12 @@
 # Root module: wires all child modules together
 
+locals {
+  vpc_id     = var.create_vpc ? module.vpc[0].vpc_id : var.existing_vpc_id
+  subnet_ids = var.create_vpc ? module.vpc[0].public_subnet_ids : var.existing_subnet_ids
+}
+
 module "vpc" {
+  count  = var.create_vpc ? 1 : 0
   source = "./modules/vpc"
 
   cidr_block            = var.cidr_block
@@ -11,6 +17,7 @@ module "vpc" {
 }
 
 module "eks" {
+  count  = var.create_eks ? 1 : 0
   source = "./modules/eks"
 
   eks_cluster_name                         = var.eks_cluster_name
@@ -19,7 +26,7 @@ module "eks" {
   eks_cluster_endpoint_private_access      = var.eks_cluster_endpoint_private_access
   eks_cluster_endpoint_public_access       = var.eks_cluster_endpoint_public_access
   eks_cluster_endpoint_public_access_cidrs = var.eks_cluster_endpoint_public_access_cidrs
-  subnet_ids                               = module.vpc.public_subnet_ids
+  subnet_ids                               = local.subnet_ids
   eks_node_group_ami_type                  = var.eks_node_group_ami_type
   eks_node_group_instance_types            = var.eks_node_group_instance_types
   eks_node_group_desired_size              = var.eks_node_group_desired_size
@@ -32,11 +39,12 @@ module "eks" {
 }
 
 module "supporting" {
+  count  = var.create_eks ? 1 : 0
   source = "./modules/supporting"
 
-  eks_cluster_name   = var.eks_cluster_name
-  vpc_id             = module.vpc.vpc_id
-  environment        = var.environment
+  eks_cluster_name = var.eks_cluster_name
+  vpc_id           = local.vpc_id
+  environment      = var.environment
 
-  depends_on = [module.vpc]
+  depends_on = [module.vpc, module.eks]
 }
