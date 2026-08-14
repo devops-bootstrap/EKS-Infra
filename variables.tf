@@ -1,3 +1,28 @@
+variable "create_vpc" {
+  type        = bool
+  description = "Whether to provision the VPC module"
+  default     = true
+}
+
+variable "create_eks" {
+  type        = bool
+  description = "Whether to provision the EKS module (and supporting module)"
+  default     = true
+}
+
+# Used when create_vpc = false and create_eks = true
+variable "existing_vpc_id" {
+  type        = string
+  description = "Existing VPC ID to use when create_vpc = false"
+  default     = ""
+}
+
+variable "existing_subnet_ids" {
+  type        = list(string)
+  description = "Existing subnet IDs to use when create_vpc = false"
+  default     = []
+}
+
 variable "region" {
   type        = string
   description = "AWS region"
@@ -105,8 +130,10 @@ variable "vpc_endpoint_services" {
 variable "addon_versions" {
   type = object({
     ebs_csi = optional(string)
+    efs_csi = optional(string)
   })
   default = {
     ebs_csi = null
+    efs_csi = null
   }
 }
