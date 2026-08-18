@@ -12,6 +12,12 @@ resource "aws_eks_node_group" "system" {
     max_size     = var.eks_node_group_max_size
   }
 
+  taint {
+    key    = "CriticalAddonsOnly"
+    value  = "true"
+    effect = "NO_SCHEDULE"
+  }
+
   ami_type       = var.eks_node_group_ami_type
   capacity_type  = "ON_DEMAND"
   instance_types = var.eks_node_group_instance_types
@@ -26,8 +32,9 @@ resource "aws_eks_node_group" "system" {
   }
 
   labels = {
-    Environment = var.environment
-    role        = "system"
+    Environment                  = var.environment
+    role                         = "system"
+    "karpenter.sh/capacity-type" = "on-demand"
   }
 
   depends_on = [
